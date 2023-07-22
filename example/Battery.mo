@@ -2,7 +2,7 @@ import { logand } "mo:base/Bool";
 import { trap } "mo:base/Debug";
 import { toText } "mo:base/Principal";
 import { endsWith; size } "mo:base/Text";
-import CyclesManager "../src/CyclesManager";
+import CyclesManager "mo:cycles-manager/CyclesManager";
 
 // A simple battery canister actor example that implements the cycles_manager_transferCycles API of the CyclesManager.Interface 
 

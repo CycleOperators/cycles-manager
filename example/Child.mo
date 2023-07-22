@@ -1,5 +1,5 @@
-import CyclesRequester "../src/CyclesRequester";
-import CyclesManager "../src/CyclesManager";
+import CyclesRequester "mo:cycles-manager/CyclesRequester";
+import CyclesManager "mo:cycles-manager/CyclesManager";
 
 import { print } "mo:base/Debug";
 
