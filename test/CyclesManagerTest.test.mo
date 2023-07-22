@@ -389,7 +389,7 @@ let setMinCyclesPerTopupSuite = describe("setMinCyclesPerTopup", [
   )
 ]);
 
-let setDefaultCAnisterCyclesQuotaSuite = describe("setDefaultCanisterCyclesQuota", [
+let setDefaultCanisterCyclesQuotaSuite = describe("setDefaultCanisterCyclesQuota", [
   it(
     "sets the defaultCyclesSettings.quota field of the cycles manager to the specified value",
     func(): Bool {
@@ -921,7 +921,7 @@ await* s.run([
   addChildCanisterSuite,
   removeChildCanisterSuite,
   setMinCyclesPerTopupSuite,
-  setDefaultCAnisterCyclesQuotaSuite,
+  setDefaultCanisterCyclesQuotaSuite,
   setAggregateCyclesQuotaSuite,
   internal_DO_NOT_USE_TransferCyclesSuite,
 ]);
