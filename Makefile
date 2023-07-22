@@ -10,7 +10,4 @@ check-strict:
 docs:
 	$(shell vessel bin)/mo-doc
 test:
-	make -C test
-
-test-q:
 	for file in test/*.test.mo; do $(shell vessel bin)/moc $(shell vessel sources 2>/dev/null) -r "$$file"; done
