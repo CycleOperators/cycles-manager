@@ -1,6 +1,7 @@
+import { toText } "mo:base/Principal";
 import Result "mo:base/Result";
 import { add } "mo:base/ExperimentalCycles";
-import { IC } "./InterfaceSpec";
+import { IC } "InterfaceSpec";
 
 module {
   public type SendCyclesResult = Result.Result<Nat, SendCyclesError>;
@@ -20,8 +21,9 @@ module {
       add(amount);
       await IC.deposit_cycles({ canister_id = canisterId });
       #ok(amount);
+    // TODO: parse and handle specific errors
     } catch (_) {
-      #err(#other "Error sending cycles.");
+      #err(#other("Error sending cycles to " # toText(canisterId)));
     }
   };
 

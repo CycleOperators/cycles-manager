@@ -4,25 +4,28 @@ import { toText } "mo:base/Principal";
 import { endsWith; size } "mo:base/Text";
 import CyclesManager "../src/CyclesManager";
 
+// A simple battery canister actor example that implements the cycles_manager_transferCycles API of the CyclesManager.Interface 
+
 actor Battery {
   // Initializes a cycles manager
   stable let cyclesManager = CyclesManager.init({
     // By default, with each transfer request 500 billion cycles will be transferred
     // to the requesting canister, provided they are permitted to request cycles
     defaultCyclesSettings = {
-      var quota = #fixedAmount(500_000_000_000);
+      quota = #fixedAmount(500_000_000_000);
     };
     // Allow an aggregate of 10 trillion cycles to be transferred every 24 hours 
     aggregateSettings = {
-      var quota = #rate({
+      quota = #rate({
         maxAmount = 10_000_000_000_000;
-        duration_in_seconds = 24 * 60 * 60;
+        durationInSeconds = 24 * 60 * 60;
       });
     };
     // 100 billion is a good default minimum for most low use canisters
     minCyclesPerTopup = ?100_000_000_000; 
   });
 
+  // @required - IMPORTANT!!!
   // Allows canisters to request cycles from this "battery canister" that implements
   // the cycles manager
   public shared ({ caller }) func cycles_manager_transferCycles(
@@ -44,9 +47,10 @@ actor Battery {
   // can add themself
   public shared func addCanister(canisterId: Principal) {
     CyclesManager.addChildCanister(cyclesManager, canisterId, {
-      var quota = ?(#rate({
+      // 1 Trillion every 24 hours
+      quota = ?(#rate({
         maxAmount = 1_000_000_000_000;
-        duration_in_seconds = 24 * 60 * 60;
+        durationInSeconds = 24 * 60 * 60;
       }));
     })
   };

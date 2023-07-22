@@ -3,11 +3,14 @@
 check:
 	find src -type f -name '*.mo' -print0 | xargs -0 $(shell vessel bin)/moc $(shell vessel sources) --check
 
-all: check-strict docs motoko_module_tests
+all: check-strict docs test
 
 check-strict:
 	find src -type f -name '*.mo' -print0 | xargs -0 $(shell vessel bin)/moc $(shell vessel sources) -Werror --check
 docs:
 	$(shell vessel bin)/mo-doc
 test:
-	make -C motoko_module_tests
+	make -C test
+
+test-q:
+	for file in test/*.test.mo; do $(shell vessel bin)/moc $(shell vessel sources 2>/dev/null) -r "$$file"; done

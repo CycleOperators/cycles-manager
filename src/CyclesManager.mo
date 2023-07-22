@@ -10,8 +10,11 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 
 import BTree "mo:btree/BTree";
+/// The Cycles Manager module is meant to be used by a single canister to act as a cycles battery for receiving requests from and topping up child canisters
+
 import InterfaceSpec "InterfaceSpec";
 import SendCycles "SendCycles";
+import Internal "Internal";
 
 module {
   /*
@@ -43,12 +46,12 @@ module {
     // The number of cycles that can be used by the canister during the quota duration period.
     maxAmount: Nat;
     // The duration of the quota period in seconds.
-    duration_in_seconds: Nat;
+    durationInSeconds: Nat;
   };
 
   /// Quota types for individual canisters 
   public type CanisterQuota = {
-    // Canister will always be topped up with this amount 
+    // Canister will always be topped up with this amount, ignores cyclesUsed  
     #fixedAmount: Nat;
     // The maximum number of cycles to top up the canister with
     #maxAmount: Nat;
@@ -68,13 +71,13 @@ module {
   /// These are overwritten by a canister specific cycles settings
   public type DefaultChildCanisterCyclesSettings = {
     // A default cycles quota setting for all canisters
-    var quota: CanisterQuota;
+    quota: CanisterQuota;
   };
 
   /// Aggregate settings that applies to the cumulative cycles usage of all canisters
   public type AggregateCyclesSettings = {
     // A cycles quota setting for the aggregate cycles usage of all canisters
-    var quota: AggregateQuota;
+    quota: AggregateQuota;
   };
 
   /// Single Canister specific cycles settings
@@ -82,84 +85,34 @@ module {
   public type CanisterCyclesSettings = {
     // The number of cycles that can be used by the canister in this period.
     // overwrites the default quota setting if set
-    var quota: ?CanisterQuota;
+    quota: ?CanisterQuota;
   };
 
-  /** 
-   * INTERNAL TYPES
-   */
+  /// Max # of cycles that can be requested by a canister per topup request
+  /// A mapping of canister principals to their cycles settings
+  public type ChildCanisterMap = BTree.BTree<Principal, Internal.InternalCanisterCyclesSettings>;
 
-  type InternalRateQuota = RateQuota and {
-    // The timestamp after which the cyclesUsed field will reset
-    var quotaPeriodExpiryTimestamp: Nat;
-  };
-
-  type InternalAggregateQuota = {
-    #rate: InternalRateQuota;
-    #unlimited;
-  };
-
-  // Quota types for individual canisters 
-  type InternalCanisterQuota = {
-    // Canister will always be topped up with this amount 
-    #fixedAmount: Nat;
-    // The maximum number of cycles to top up the canister with
-    #maxAmount: Nat;
-    // Defines a rate at which the canister can request more cycles 
-    #rate: InternalRateQuota; 
-    // A canister can use as many cycles as it wants
-    #unlimited;
-  };
-
-  // Default canister cycles settings that by default apply to all "child" canisters in the canisterToCyclesSettingsMap 
-  // these are overwritten by a canister specific cycles settings
-  type InternalDefaultChildCanisterCyclesSettings = {
-    // A default cycles quota setting for all canisters
-    var quota: InternalCanisterQuota;
-  };
-
-  // Aggregate settings that applies to the cumulative cycles usage of all canisters
-  type InternalAggregateCyclesSettings = {
-    // A cycles quota setting for the aggregate cycles usage of all canisters
-    var quota: InternalAggregateQuota;
-    // Tracks the total cycles used by all canisters
-    var cyclesUsed: Nat;
-  };
-
-  // Single Canister specific cycles settings
-  type InternalCanisterCyclesSettings = {
-    // The number of cycles that can be used by the canister in this period.
-    // overwrites the default quota setting if set
-    var quota: ?InternalCanisterQuota;
-    // The number of cycles that have been used by the canister during the current period.
-    var cyclesUsed: Nat;
-  };
-
-  // Max # of cycles that can be requested by a canister per topup request
-  // A mapping of canister principals to their cycles settings
-  type ChildCanisterMap = BTree.BTree<Principal, InternalCanisterCyclesSettings>;
-
-  // A type representing cycles management where the Index/Factory cansiter is responsible for
-  // fielding requests from canisters and determining whether or not to top them up
-  /**
-  * Cycles Quota Priority
-  *
-  * 1. Aggregate Quota Cycles Setting - if a rate aggregate quota exists and it has been hit, then no more cycles will be funded from
-  *                                     this cycles manager for the rest of the period
-  * 2. Individual canister Cycles Quota Setting 
-  * 3. Default Cycles Quota Settings - If a canister exists in the childCanisterMap, but no quota setting is provided for that canister,
-  *                                   use the default (default) cycles quota setting
-  *
-  * If no individual or default quota is provided, the request for cycles is denied.
-  * Also, if the individual canister does not exist in the childCanisterMap, it's request for cycles will be denied (access control)
-  */
-  type CyclesManager = {
-    defaultSettings: InternalDefaultChildCanisterCyclesSettings;
-    aggregateSettings: InternalAggregateCyclesSettings;    
+  /// A type representing cycles management where the Index/Factory cansiter is responsible for
+  /// fielding requests from canisters and determining whether or not to top them up
+  ///
+  /// Cycles Quota Priority
+  ///
+  /// 1. Aggregate Quota Cycles Setting - if a rate aggregate quota exists and it has been hit, then no more cycles will be funded from
+  ///                                     this cycles manager for the rest of the period
+  /// 2. Individual canister Cycles Quota Setting 
+  /// 3. Default Cycles Quota Settings - If a canister exists in the childCanisterMap, but no quota setting is provided for that canister,
+  ///                                   use the default (default) cycles quota setting
+  /// 
+  /// If no individual or default quota is provided, the request for cycles is denied.
+  /// Also, if the individual canister does not exist in the childCanisterMap, it's request for cycles will be denied (access control)
+  public type CyclesManager = {
+    defaultSettings: Internal.InternalDefaultChildCanisterCyclesSettings;
+    aggregateSettings: Internal.InternalAggregateCyclesSettings;    
     childCanisterMap: ChildCanisterMap;
     var minCyclesPerTopup: ?Nat; // recommended to set at least 50 billion
   };
 
+  /// Initializes a CyclesManager
   public func init({
     defaultCyclesSettings: DefaultChildCanisterCyclesSettings;
     aggregateSettings: AggregateCyclesSettings;
@@ -173,11 +126,12 @@ module {
         var quota = initializeAggregateCanisterQuota(aggregateSettings.quota);
         var cyclesUsed = 0;
       };
-      childCanisterMap = BTree.init<Principal, InternalCanisterCyclesSettings>(null);
+      childCanisterMap = BTree.init<Principal, Internal.InternalCanisterCyclesSettings>(null);
       var minCyclesPerTopup = minCyclesPerTopup;
     }
   };
 
+  /// Adds a child canister to the CyclesManager
   public func addChildCanister(cyclesManager: CyclesManager, canister: Principal, cyclesSettings: CanisterCyclesSettings): () {
     let internalCanisterCyclesSettings = {
       var quota = switch(cyclesSettings.quota) {
@@ -189,26 +143,48 @@ module {
     ignore BTree.insert(cyclesManager.childCanisterMap, Principal.compare, canister, internalCanisterCyclesSettings);
   };
 
+  /// Removes a child canister from the CyclesManager
   public func removeChildCanister(cyclesManager: CyclesManager, canister: Principal): () {
     ignore BTree.delete(cyclesManager.childCanisterMap, Principal.compare, canister);
   };
 
+  /// Sets the minimum number of cycles that a canister can request per topup
   public func setMinCyclesPerTopup(cyclesManager: CyclesManager, minCyclesPerTopup: Nat): () {
     cyclesManager.minCyclesPerTopup := ?minCyclesPerTopup;
   };
 
+  /// Sets the default canister cycles quota
   public func setDefaultCanisterCyclesQuota(cyclesManager: CyclesManager, quota: CanisterQuota): () {
     cyclesManager.defaultSettings.quota := intitializeCanisterQuota(quota);
   };
 
+  /// Sets the aggregate canister cycles quota
   public func setAggregateCyclesQuota(cyclesManager: CyclesManager, quota: AggregateQuota): () {
     cyclesManager.aggregateSettings.quota := initializeAggregateCanisterQuota(quota);
   };
 
+  /// Attempts to transfers cycles to a canister principal
   public func transferCycles({
     cyclesManager: CyclesManager;
     canister: Principal;
     cyclesRequested: Nat;
+  }): async* TransferCyclesResult {
+    await* internal_DO_NOT_USE_TransferCycles({
+      cyclesManager;
+      canister;
+      cyclesRequested;
+      sendCycles = SendCycles.sendCycles;
+    });
+  };
+
+  /* INTERNAL FUNCTIONS, exposed for testing purposes only */
+
+  /// @deprecated - this is an internal function whose only purpose is to allow async unit testing. Do not use directly!
+  public func internal_DO_NOT_USE_TransferCycles({
+    cyclesManager: CyclesManager;
+    canister: Principal;
+    cyclesRequested: Nat;
+    sendCycles: (Nat, Principal) -> async SendCycles.SendCyclesResult;
   }): async* TransferCyclesResult {
     let { defaultSettings; aggregateSettings; childCanisterMap } = cyclesManager;
     // Get the quota and cycles used for the canister
@@ -236,41 +212,46 @@ module {
     // Grant the canister the lesser of the availableCycles and the cyclesRequested
     let grantableCycles = min(availableCycles, cyclesRequested);
 
+    // Before the commit point, update the cycles used for the canister and the aggregate cycles used so that
+    // any requests that come in within the same round will be able to see the updated cycles used
+    canisterSettings.cyclesUsed += grantableCycles;
+    aggregateSettings.cyclesUsed += grantableCycles;
     // send the cycles to the canister
-    switch(await SendCycles.sendCycles(grantableCycles, canister)) {
-      // If sending the cycles was successful, increment the cycles used for the canister 
-      case (#ok(_)) { 
-        canisterSettings.cyclesUsed += grantableCycles;
-        aggregateSettings.cyclesUsed += grantableCycles;
-        #ok(grantableCycles) 
-      };
+    switch(await sendCycles(grantableCycles, canister)) {
+      // If sending the cycles was successful, return the amount of cycles sent 
+      case (#ok(cyclesSent)) #ok(cyclesSent);
+      // If sending the cycles failed for any reason, decrement the cycles used for the canister (release the grantableCycles)
       // Covers all SendCyclesError cases
-      case errorCases { errorCases }; 
+      case (#err(errorCases)) { 
+        canisterSettings.cyclesUsed -= grantableCycles;
+        aggregateSettings.cyclesUsed -= grantableCycles;
+        #err(errorCases) 
+      };
     };
   };
 
-  func intitializeCanisterQuota(quota: CanisterQuota): InternalCanisterQuota {
+  func intitializeCanisterQuota(quota: CanisterQuota): Internal.InternalCanisterQuota {
     switch(quota) {
       case (#fixedAmount(amt)) #fixedAmount(amt);
       case (#maxAmount(amt)) #maxAmount(amt); 
-      case (#rate({ duration_in_seconds; maxAmount })) { 
+      case (#rate({ durationInSeconds; maxAmount })) { 
         #rate({
           maxAmount;
-          duration_in_seconds;
-          var quotaPeriodExpiryTimestamp = abs(now()) + duration_in_seconds * 1_000_000_000;
+          durationInSeconds;
+          var quotaPeriodExpiryTimestamp = abs(now()) + durationInSeconds * 1_000_000_000;
         })
       };
       case (#unlimited) #unlimited;
     };
   };
 
-  func initializeAggregateCanisterQuota(quota: AggregateQuota): InternalAggregateQuota {
+  func initializeAggregateCanisterQuota(quota: AggregateQuota): Internal.InternalAggregateQuota {
     switch(quota) {
-      case (#rate({ duration_in_seconds; maxAmount })) { 
+      case (#rate({ durationInSeconds; maxAmount })) { 
         #rate({
           maxAmount;
-          duration_in_seconds;
-          var quotaPeriodExpiryTimestamp = abs(now()) + duration_in_seconds * 1_000_000_000;
+          durationInSeconds;
+          var quotaPeriodExpiryTimestamp = abs(now()) + durationInSeconds * 1_000_000_000;
         })
       };
       case (#unlimited) #unlimited;
@@ -279,9 +260,9 @@ module {
 
   type CanisterQuotaAndSettings = {
     // The canister cycles settings
-    canisterSettings: InternalCanisterCyclesSettings;
+    canisterSettings: Internal.InternalCanisterCyclesSettings;
     // The quota to use for the canister
-    quota: InternalCanisterQuota;
+    quota: Internal.InternalCanisterQuota;
   };
 
   // Gets a canister's quota and cycles settings. This will use the canister specific cycles settings if exists,
@@ -289,7 +270,7 @@ module {
   //
   // This function will trap if the canister does not exist in the child canister map
   func getCanisterQuotaAndSettings(
-    defaultSettings: InternalDefaultChildCanisterCyclesSettings,
+    defaultSettings: Internal.InternalDefaultChildCanisterCyclesSettings,
     childCanisterMap: ChildCanisterMap,
     canister: Principal
   ): CanisterQuotaAndSettings {
@@ -307,7 +288,7 @@ module {
     };
   };
 
-  func getAggregateCyclesRemaining(aggregateSettings: InternalAggregateCyclesSettings, cyclesRequested: Nat): Nat = switch(aggregateSettings.quota) {
+  func getAggregateCyclesRemaining(aggregateSettings: Internal.InternalAggregateCyclesSettings, cyclesRequested: Nat): Nat = switch(aggregateSettings.quota) {
     // In this case, null means no aggregate cycles quota exists on the battery canister
     case (#unlimited) { cyclesRequested };
     // The developer has set an aggregate quota
@@ -317,7 +298,7 @@ module {
       // If the quota period has expired, reset the cycles used and the quota period expiry time
       if (currentTime >= rateQuota.quotaPeriodExpiryTimestamp) {
         aggregateSettings.cyclesUsed := 0;
-        rateQuota.quotaPeriodExpiryTimestamp := currentTime + rateQuota.duration_in_seconds * 1_000_000_000; 
+        rateQuota.quotaPeriodExpiryTimestamp := currentTime + rateQuota.durationInSeconds * 1_000_000_000; 
       };
 
       let cyclesRemaining = getDifferenceOrZero(rateQuota.maxAmount, aggregateSettings.cyclesUsed);
@@ -326,8 +307,8 @@ module {
   };
 
   func getCanisterCyclesRemaining(
-    canisterSettings: InternalCanisterCyclesSettings,
-    quota: InternalCanisterQuota,
+    canisterSettings: Internal.InternalCanisterCyclesSettings,
+    quota: Internal.InternalCanisterQuota,
     cyclesRequested: Nat
   ): Nat = switch(quota) {
     case (#fixedAmount(amt)) { amt };
@@ -338,7 +319,7 @@ module {
       // If the quota period has expired, reset the cycles used and the quota period expiry time
       if (currentTime >= rateQuota.quotaPeriodExpiryTimestamp) {
         canisterSettings.cyclesUsed := 0;
-        rateQuota.quotaPeriodExpiryTimestamp := currentTime + rateQuota.duration_in_seconds * 1_000_000_000;
+        rateQuota.quotaPeriodExpiryTimestamp := currentTime + rateQuota.durationInSeconds * 1_000_000_000;
       };
 
       let cyclesRemaining = getDifferenceOrZero(rateQuota.maxAmount, canisterSettings.cyclesUsed);

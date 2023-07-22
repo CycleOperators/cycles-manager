@@ -1,3 +1,5 @@
+/// The CyclesRequester module is meant to be used by canisters that need to request cycles from a battery canister that implements the CyclesManager interface.
+
 import { toText } "mo:base/Principal";
 import { message } "mo:base/Error";
 import { balance } "mo:base/ExperimentalCycles";
@@ -31,11 +33,14 @@ module {
     };
   };
 
+  /// The cycles requester type, containing the principal of the "battery canister", or the canister
+  /// From which cycles are requested, and a topup rule.
   public type CyclesRequester = {
     batteryCanisterPrincipal: Principal;
     var topupRule: TopupRule;
   };
 
+  /// Initialize a cycles requester.
   public func init({
     batteryCanisterPrincipal: Principal;
     topupRule: TopupRule;
@@ -44,15 +49,41 @@ module {
     var topupRule = topupRule;
   };
 
+  /// Sets the topup rule for a cycles requester.
   public func setTopupRule(cyclesRequester: CyclesRequester, topupRule: TopupRule) {
     cyclesRequester.topupRule := topupRule;
   };
 
-  public func isBelowCyclesThreshold(cyclesRequester: CyclesRequester): async Bool {
+  /// Returns a boolean representing if the canister is below its set cycles threshold.
+  public func isBelowCyclesThreshold(cyclesRequester: CyclesRequester): Bool {
     balance() < cyclesRequester.topupRule.threshold;
   };
 
-  public func initiateTopup(cyclesRequester: CyclesRequester): async CyclesManager.TransferCyclesResult {
+  /// Requests a topup according to the set topup rule if the canister is below its cycles threshold.
+  public func requestTopupIfBelowThreshold(cyclesRequester: CyclesRequester): async* CyclesManager.TransferCyclesResult {
+    if (isBelowCyclesThreshold(cyclesRequester)) {
+      try {
+        return await requestTopup(cyclesRequester);
+      } catch(error) {
+        return #err(#other(message(error)));
+      }
+    } else {
+      return #ok(0);
+    }
+  };
+
+  /// Requests a specific amount of cycles from the battery canister.
+  public func requestCyclesAmount(cyclesRequester: CyclesRequester, amount: Nat): async CyclesManager.TransferCyclesResult {
+    let battery: CyclesManager.Interface = actor (toText(cyclesRequester.batteryCanisterPrincipal));
+    try {
+      let result = await battery.cycles_manager_transferCycles(amount);
+      return result;
+    } catch(error) {
+      return #err(#other(message(error)));
+    }
+  };
+
+  func requestTopup(cyclesRequester: CyclesRequester): async CyclesManager.TransferCyclesResult {
     let battery: CyclesManager.Interface = actor (toText(cyclesRequester.batteryCanisterPrincipal));
     let currentBalance = balance();
     let amountToRequest = switch(cyclesRequester.topupRule.method) {
@@ -68,5 +99,5 @@ module {
     } catch(error) {
       return #err(#other(message(error)));
     }
-  }
+  };
 }

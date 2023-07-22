@@ -1,0 +1,26 @@
+{
+  "canisters": {
+    "battery": {
+      "main": "Battery.mo",
+      "type": "motoko"
+    },
+    "child": {
+      "main": "Child.mo",
+      "type": "motoko"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": "vessel sources"
+    }
+  },
+  "dfx": "0.14.1",
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:8080",
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}

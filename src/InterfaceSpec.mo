@@ -1,5 +1,6 @@
-/// Full Interface Spec - https://github.com/dfinity/interface-spec/blob/master/spec/ic.did
+/// Subset of the Interface Spec used for sending cycles
 
+/// For the full Interface Spec, see https://github.com/dfinity/interface-spec/blob/master/spec/ic.did
 module {
   public let IC : Interface = actor ("aaaaa-aa");
 
