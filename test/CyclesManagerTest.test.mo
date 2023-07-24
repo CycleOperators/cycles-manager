@@ -545,7 +545,7 @@ let internal_DO_NOT_USE_TransferCyclesSuite = describe("internal_DO_NOT_USE_Tran
     }
   ),
   its(
-    "if the aggregate cycles quota is not unlimited and the aggregate cycles used are equal to the aggregate cycles quota, returns the #aggregate_quota_reached error variant",
+    "if the aggregate cycles quota is not unlimited and the aggregate cycles used are greater than to the aggregate cycles quota, returns the #aggregate_quota_reached error variant",
     func(): async* Bool {
       let cyclesManager = CM.init({
         defaultCyclesSettings = {
