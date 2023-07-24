@@ -13,7 +13,7 @@ module {
     maxAmount: Nat;
     // The duration of the quota period in seconds.
     durationInSeconds: Nat;
-    // The timestamp after which the cyclesUsed field will reset
+    // The timestamp (in *nanoseconds*) after which the cyclesUsed field will reset
     var quotaPeriodExpiryTimestamp: Nat;
   };
 

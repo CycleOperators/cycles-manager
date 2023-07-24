@@ -1,6 +1,6 @@
 import { logand } "mo:base/Bool";
 import { trap } "mo:base/Debug";
-import { toText } "mo:base/Principal";
+import Principal "mo:base/Principal";
 import { endsWith; size } "mo:base/Text";
 import CyclesManager "mo:cycles-manager/CyclesManager";
 
@@ -11,6 +11,8 @@ actor Battery {
   stable let cyclesManager = CyclesManager.init({
     // By default, with each transfer request 500 billion cycles will be transferred
     // to the requesting canister, provided they are permitted to request cycles
+    //
+    // This means that if a canister is added with no quota, it will default to the quota of #fixedAmount(500)
     defaultCyclesSettings = {
       quota = #fixedAmount(500_000_000_000);
     };
@@ -21,8 +23,8 @@ actor Battery {
         durationInSeconds = 24 * 60 * 60;
       });
     };
-    // 100 billion is a good default minimum for most low use canisters
-    minCyclesPerTopup = ?100_000_000_000; 
+    // 50 billion is a good default minimum for most low use canisters
+    minCyclesPerTopup = ?50_000_000_000;
   });
 
   // @required - IMPORTANT!!!
@@ -42,12 +44,13 @@ actor Battery {
   };
 
   // A very basic example of adding a canister to the cycles manager
+  // This adds a canister with a 1 trillion cycles allowed per 24 hours cycles quota
   //
   // IMPORTANT: Add authoriation for production implementation so that not just any canister
   // can add themself
-  public shared func addCanister(canisterId: Principal) {
+  public shared func addCanisterWith1TrillionPer24HoursLimit(canisterId: Principal) {
     CyclesManager.addChildCanister(cyclesManager, canisterId, {
-      // 1 Trillion every 24 hours
+      // This topup rule all1 Trillion every 24 hours
       quota = ?(#rate({
         maxAmount = 1_000_000_000_000;
         durationInSeconds = 24 * 60 * 60;
@@ -55,8 +58,14 @@ actor Battery {
     })
   };
 
+  // **DO NOT USE IN PRODUCTION** - for developer debugging and testing purposes only
+  public func toText() : async Text {
+    let result = CyclesManager.toText(cyclesManager);
+    result;
+  };
+
   func isCanister(p : Principal) : Bool {
-    let principal_text = toText(p);
+    let principal_text = Principal.toText(p);
     // Canister principals have 27 characters
     size(principal_text) == 27
     and

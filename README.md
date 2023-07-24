@@ -27,9 +27,13 @@ To see it in action, perform the following
 3. Start up dfx - `dfx start --background --clean`
 4. Deploy both the battery and child canisters `dfx deploy`
 5. Configure the battery and child canisters. Using the links in your terminal:  
-  a. Open up the Candid UI of the **battery** canister and call the `addCanister()` API with the canister id of the **child** canister  
+  a. Open up the Candid UI of the **battery** canister and call the `addCanisterWith1TrillionPer24HoursLimit()` API with the canister id of the **child** canister
   b. Open up the Candid UI of the **child** canister and call the `initializeCyclesRequester()` API with the canister id of the **battery** canister, as well as the conditions of the topup rule. A simple topup rule for this local example would be to topup **by_amount** 100000000000 (100 billion) when the canister has fewer than 5000000000000 (5 Trillion cycles)
 6. Test the cycles-manager. Using the Candid UI of the **child** canister, call the `justAnotherCounterExample()` API, which before running the update first checks if a canister's cycles balance is below a threshold and requests cycles from the **battery** canister if they are needed.
+
+#### What's happening under the hood?
+
+Every time the `justAnotherCounterExample()` API is called, the **child** canister checks it's cycles balance and compares it to the topup rule that was set in its initialized `CyclesRequester` stable variable. Since it has fewer than 5T cycles, it follows the topup rule and requests 100 billion cycles from the **battery** canister. Because the **battery** canister has added the **child** canister with a 1T cycles per 24 hours quota, you should be able to call the ``justAnotherCounterExample()` function 10 times to request 100 billion cycles. On the 11th time, you will see a log showing that 100 billion cycles were requested, but the topup request was rejected by the CyclesManager of the **battery** canister with `#err(#canister_quota_reached)`. This is just one example of how the battery canister can limit the cycles requests of other child canisters. Check out all the quota types (#fixedAmount, #maxAmount, #rate, #unlimited) in [CyclesManager.mo](./src/CyclesManager.mo) to see which type of quota best suits your application use case.
 
 ### Using the cycles-manager with production applications via CycleOps
 

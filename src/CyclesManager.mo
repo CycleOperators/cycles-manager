@@ -10,7 +10,6 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 
 import BTree "mo:btree/BTree";
-/// The Cycles Manager module is meant to be used by a single canister to act as a cycles battery for receiving requests from and topping up child canisters
 
 import InterfaceSpec "InterfaceSpec";
 import SendCycles "SendCycles";
@@ -177,6 +176,20 @@ module {
     });
   };
 
+  public func toText(cyclesManager: CyclesManager): Text {
+    let { defaultSettings; aggregateSettings; childCanisterMap } = cyclesManager;
+    let defaultSettingsText = "{ quota = " # debug_show(defaultSettings.quota) # "}";
+    let aggregateSettingsText = "{ quota = " # debug_show(aggregateSettings.quota) # ", cyclesUsed = " # debug_show(aggregateSettings.cyclesUsed) # " }";
+    let childCanisterMapText = BTree.toText<Principal, Internal.InternalCanisterCyclesSettings>(
+      childCanisterMap,
+      Principal.toText,
+      func(cyclesSettings: Internal.InternalCanisterCyclesSettings): Text {
+        "{ quota = " # debug_show(cyclesSettings.quota) # ", cyclesUsed = " # debug_show(cyclesSettings.cyclesUsed) # " }"
+      },
+    );
+    "CyclesManager { defaultSettings = " # defaultSettingsText # ", aggregateSettings = " # aggregateSettingsText # ", childCanisterMap = " # childCanisterMapText # ", minCyclesPerTopup = " # debug_show(cyclesManager.minCyclesPerTopup) # " }";
+  };
+
   /* INTERNAL FUNCTIONS, exposed for testing purposes only */
 
   /// @deprecated - this is an internal function whose only purpose is to allow async unit testing. Do not use directly!
@@ -204,6 +217,8 @@ module {
     if (aggregateCyclesRemaining == 0) return #err(#aggregate_quota_reached);
 
     // Check the max cycles that the canister is allowed to request
+
+
     let remainingCyclesForCanister = getCanisterCyclesRemaining(canisterSettings, quota, cyclesRequested); 
     if (remainingCyclesForCanister == 0) return #err(#canister_quota_reached);
 
@@ -293,8 +308,8 @@ module {
     case (#unlimited) { cyclesRequested };
     // The developer has set an aggregate quota
     case (#rate(rateQuota)) {
-      // Get the current time in seconds
-      let currentTime = abs(now()) / 1_000_000_000;
+      // Get the current time
+      let currentTime = abs(now());
       // If the quota period has expired, reset the cycles used and the quota period expiry time
       if (currentTime >= rateQuota.quotaPeriodExpiryTimestamp) {
         aggregateSettings.cyclesUsed := 0;
@@ -314,8 +329,8 @@ module {
     case (#fixedAmount(amt)) { amt };
     case (#maxAmount(amt)) { getDifferenceOrZero(amt, canisterSettings.cyclesUsed) };
     case (#rate(rateQuota)) {
-      // Get the current time in seconds
-      let currentTime = abs(now()) / 1_000_000_000;
+      // Get the current time
+      let currentTime = abs(now());
       // If the quota period has expired, reset the cycles used and the quota period expiry time
       if (currentTime >= rateQuota.quotaPeriodExpiryTimestamp) {
         canisterSettings.cyclesUsed := 0;
