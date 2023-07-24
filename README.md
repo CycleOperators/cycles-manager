@@ -28,7 +28,7 @@ To see it in action, perform the following
 2. Navigate to the example - `cd example`
 3. Start up dfx - `dfx start --background --clean`
 4. Deploy both the battery and child canisters `dfx deploy`
-5. Configure the battery and child canisters. Using the links in your terminal:  
+5. Configure the battery and child canisters. Use the candid UI links displayed in the output of the deploy command from your terminal:  
    a. Open up the Candid UI of the **battery** canister and call the `addCanister()` API with the canister id of the **child** canister  
    b. Open up the Candid UI of the **child** canister and call the `initializeCyclesRequester()` API with the canister id of the **battery** canister, as well as the conditions of the topup rule. A simple topup rule for this local example would be to topup **by_amount** 100000000000 (100 billion) when the canister has fewer than 5000000000000 (5 Trillion cycles)
 6. Test the cycles-manager. Using the Candid UI of the **child** canister, call the `justAnotherCounterExample()` API, which before running the update first checks if a canister's cycles balance is below a threshold and requests cycles from the **battery** canister if they are needed.
