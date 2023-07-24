@@ -545,7 +545,7 @@ let internal_DO_NOT_USE_TransferCyclesSuite = describe("internal_DO_NOT_USE_Tran
     }
   ),
   its(
-    "if the aggregate cycles quota is not unlimited and the aggregate cycles used are equal to the aggregate cycles quota, returns the #aggregate_quota_reached error variant",
+    "if the aggregate cycles quota is a rate quota (not unlimited) and at the time of cycles transfer, the aggregate cycles used are equal to the aggregate cycles quota (aggregate quota was reached), returns the #aggregate_quota_reached error variant",
     func(): async* Bool {
       let cyclesManager = CM.init({
         defaultCyclesSettings = {
@@ -580,7 +580,7 @@ let internal_DO_NOT_USE_TransferCyclesSuite = describe("internal_DO_NOT_USE_Tran
     }
   ),
   its(
-    "if the canister cycles quota is not unlimited or fixed and the canister cycles used are equal to the canister cycles quota, returns the #canister_quota_reached error variant",
+    "if the canister cycles quota is a maxAmount quota and the canister cycles used are equal to the maxAmount canister cycles quota, returns the #canister_quota_reached error variant",
     func(): async* Bool {
       let cyclesManager = CM.init({
         defaultCyclesSettings = {

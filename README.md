@@ -1,7 +1,8 @@
 # cycles-manager
+
 A library for index canisters that want to manage the cycles of their child canisters.
 
-### This Library is Sponsored by the [CycleOps team](https://cycleops.dev) and the DFINITY Foundation**
+### This Library is Sponsored by the [CycleOps team](https://cycleops.dev) and the DFINITY Foundation
 
 [https://cycleops.dev](https://cycleops.dev) is automated canister cycles management for the Internet Computer.
 
@@ -19,14 +20,14 @@ This cycles-manager library proposes a simple, flexible pattern for cycles manag
 
 ### A simple example!
 
-The [example/](./example/) folder for contains a basic example using the cycles-manager. It implements the CyclesManager module in an [Battery](./example/Battery.mo) (i.e. index) canister actor and the CyclesRequester module in a [Child](./example/Child.mo) (i.e. service) canister actor.
+The [example/](./example/) folder for contains a basic example using the cycles-manager. It implements the CyclesManager module in a [Battery](./example/Battery.mo) (i.e. index) canister actor and the CyclesRequester module in a [Child](./example/Child.mo) (i.e. service) canister actor.
 
 To see it in action, perform the following
 1. Clone this repository
 2. Navigate to the example - `cd example`
 3. Start up dfx - `dfx start --background --clean`
 4. Deploy both the battery and child canisters `dfx deploy`
-5. Configure the battery and child canisters. Using the links in your terminal:  
+5. Configure the battery and child canisters. Use the Candid UI links displayed in the output of the deploy command from your terminal:
   a. Open up the Candid UI of the **battery** canister and call the `addCanisterWith1TrillionPer24HoursLimit()` API with the canister id of the **child** canister
   b. Open up the Candid UI of the **child** canister and call the `initializeCyclesRequester()` API with the canister id of the **battery** canister, as well as the conditions of the topup rule. A simple topup rule for this local example would be to topup **by_amount** 100000000000 (100 billion) when the canister has fewer than 5000000000000 (5 Trillion cycles)
 6. Test the cycles-manager. Using the Candid UI of the **child** canister, call the `justAnotherCounterExample()` API, which before running the update first checks if a canister's cycles balance is below a threshold and requests cycles from the **battery** canister if they are needed.
@@ -42,10 +43,12 @@ The cycles manager works great for managing the cycles of multi-canister applica
 
 ## Concepts
 
-### The Cycles Manager 
-The Cycles Manager is placed in the index/battery canister and is responsible for transfering cycles to child canisters that request cycles and are permitted to do so by the cycles manager. It does this by: 
-* Maintaining a list of all allowed child canisters, and ensuring child canisters do not request more than their alloted cycles quotas.
-* Tracking the aggregate cycles apportioned to all canisters, ensuring that the battery/index canister does not transfer more cycles than alloted by the aggregate quota
+### The Cycles Manager
+
+The Cycles Manager is placed in the index/battery canister and is responsible for transfering cycles to child canisters that request cycles and are permitted to do so by the cycles manager. It does this by:
+
+- Maintaining a list of all allowed child canisters, and ensuring child canisters do not request more than their alloted cycles quotas.
+- Tracking the aggregate cycles apportioned to all canisters, ensuring that the battery/index canister does not transfer more cycles than alloted by the aggregate quota
 
 You can initialize the `CyclesManager` by calling `CyclesManager.init()` with the appropriate settings.`
 
@@ -65,7 +68,7 @@ You can initialize the `CyclesManager` by calling `CyclesManager.init()` with th
         durationInSeconds = 60 * 60 * 24;
       });
     };
-    // A child canister much request at least 50 Billion cycles per topup request
+    // A child canister must request at least 50 Billion cycles per topup request
     minCyclesPerTopup = ?50_000_000_000;
   });
 ```
@@ -73,6 +76,7 @@ You can initialize the `CyclesManager` by calling `CyclesManager.init()` with th
 #### Adding a child canister
 
 Adding a child canister to the Cycles Manager allows it to request cycles from the canister implementing that CyclesManager. You can add a child canister with
+
 ```
 CyclesManager.addChildCanister(
   cyclesManager,
@@ -93,6 +97,7 @@ CyclesManager.addChildCanister(
 Default settings provide a default cycles quota setting for all canisters added to the cycles manager. Unless a specific quota is specified for a canister in the child canister map, any added canister will fall back to use the default setting.
 
 You can update the CyclesManager's default cycles quota by calling
+
 ```
 CyclesManager.setDefaultCanisterCyclesQuota(
   cyclesManager,
@@ -109,6 +114,7 @@ CyclesManager.setDefaultCanisterCyclesQuota(
 Aggregate settings provide a security blanket for the index/battery canister in which the CyclesManager library is used. This allows the developer to specify a limit on how many cycles can be disbursed from the CyclesManger over a desired time period.
 
 You can update the CyclesManager's aggregate cycles quota by calling
+
 ```
 CyclesManager.setAggregateCyclesQuota(
   cyclesManager,
@@ -125,6 +131,7 @@ CyclesManager.setAggregateCyclesQuota(
 You have the ability to specify a minimum cycles requested per each canister topup request. This helps prevent a rogue canister from attacking your battery canister by repeatedly issuing requests for a low amount of cycles (i.e. 10 cycles). Any topup requests made that have an amount lower than this minmum amount are rejected. It is recommended to set this limit to at least 50 billion cycles.
 
 You can update the CyclesManager's minCyclesPerTopup property by calling
+
 ```
 CyclesManager.setMinCyclesPerTopup(cyclesManager, 50_000_000_000);
 ```
@@ -143,12 +150,13 @@ Any canister implementing the CyclesManager must implement the following interfa
 
 ### The Cycles Requester
 
-The cycles requester allows a child canister to easily request cycles from a battery canister implementing the CyclesManager Interface (shown in the Interface section of this document). 
+The cycles requester allows a child canister to easily request cycles from a battery canister implementing the CyclesManager Interface (shown in the Interface section of this document).
 
 In order to do this, a child canister must do the following:
 
 1. The specific child canister must have been added to the battery canister's cycles manager via `CyclesManager.addChildCanister()`.
 2. Initialize the CyclesRequester in the child canister
+
 ```
   // Example, if your battery canister id was "be2us-64aaa-aaaaa-qaabq-cai";
   let batteryCanisterPrincipal = Principal.fromText("be2us-64aaa-aaaaa-qaabq-cai");
@@ -161,7 +169,9 @@ In order to do this, a child canister must do the following:
     };
   });
 ```
+
 3. Add the `requestTopupIfBelowThreshold` to any update methods of your child canister.
+
 ```
 public func yourUpdateAPI(): async () {
   // before doing something, check if we need to request cycles
